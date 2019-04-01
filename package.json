@@ -1,7 +1,7 @@
 {
   "name": "dry-in-react",
   "version": "0.1.0",
-  "homepage": "https://fernandocamargo.github.io",
+  "homepage": "https://fernandocamargo.github.io/dry-in-react",
   "private": false,
   "dependencies": {
     "gh-pages": "^2.0.1",
