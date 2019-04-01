@@ -1,7 +1,7 @@
 import React, { useCallback, createElement } from "react";
 import { oneOfType, node, func } from "prop-types";
 
-const isCustom = object => typeof object === "function";
+const isComponent = object => typeof object === "function";
 
 const stringify = callback =>
   String(callback)
@@ -15,23 +15,20 @@ const print = string =>
     "background-color: inherit; color: inherit; font-weight: inherit; padding: inherit;"
   );
 
-const GenericButton = ({ children, onClick }) => {
-  const track = callback =>
-    useCallback(
-      (...params) => {
-        print(stringify(callback));
+const track = callback =>
+  useCallback(
+    (...params) => print(stringify(callback)) || callback(...params),
+    [callback]
+  );
 
-        return callback(...params);
-      },
-      [callback]
-    );
+const GenericButton = ({ children, onClick }) => {
   const style = { fontSize: 20 };
   const Button = useCallback(
     props => <button onClick={track(onClick)} style={style} {...props} />,
     []
   );
 
-  return isCustom(children)
+  return isComponent(children)
     ? createElement(children, { Button, track, style })
     : createElement(Button, { children });
 };
