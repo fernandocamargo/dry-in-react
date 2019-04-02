@@ -1,10 +1,9 @@
 import React from "react";
-import { bool } from "prop-types";
 
-import GenericButton from "components/GenericButton";
+import Activable from "components/Activable";
 
 const CloseModal = ({ active }) => (
-  <GenericButton onClick={() => window.alert("closeModal();")}>
+  <Activable onClick={() => window.alert("closeModal();")} active={active}>
     {({ Button, style }) => (
       <Button
         style={{
@@ -12,20 +11,11 @@ const CloseModal = ({ active }) => (
           fontSize: `${parseInt(style.fontSize, 10) / 2}px`,
           background: "orange"
         }}
-        disabled={!active}
       >
         Close Modal
       </Button>
     )}
-  </GenericButton>
+  </Activable>
 );
-
-CloseModal.propTypes = {
-  active: bool
-};
-
-CloseModal.defaultProps = {
-  active: true
-};
 
 export default CloseModal;

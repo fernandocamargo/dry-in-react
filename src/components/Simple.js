@@ -1,28 +1,13 @@
 import React from "react";
-import { bool } from "prop-types";
 
-import GenericButton from "components/GenericButton";
+import Activable from "components/Activable";
 
-const Simple = ({ active }) => {
-  const Customization = ({ Button, style }) => (
-    <Button style={{ ...style, background: "green" }} disabled={!active}>
-      Button
-    </Button>
-  );
-
-  return (
-    <GenericButton onClick={() => window.alert("openCart();")}>
-      {Customization}
-    </GenericButton>
-  );
-};
-
-Simple.propTypes = {
-  active: bool
-};
-
-Simple.defaultProps = {
-  active: true
-};
+const Simple = ({ active }) => (
+  <Activable onClick={() => window.alert("openCart();")} active={active}>
+    {({ Button, style }) => (
+      <Button style={{ ...style, background: "green" }}>Button</Button>
+    )}
+  </Activable>
+);
 
 export default Simple;

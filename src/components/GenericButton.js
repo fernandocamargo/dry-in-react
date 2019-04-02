@@ -34,9 +34,14 @@ const style = {
   padding: "10px"
 };
 
-const GenericButton = ({ children, onClick }) => {
+const GenericButton = ({ children, onClick, ...enhancement }) => {
   const Button = props => (
-    <button onClick={track(onClick)} style={style} {...props} />
+    <button
+      onClick={track(onClick)}
+      style={style}
+      {...props}
+      {...enhancement}
+    />
   );
   const pieces = { Button, track, style };
 
