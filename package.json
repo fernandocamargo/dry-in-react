@@ -2,7 +2,7 @@
   "name": "dry-in-react",
   "version": "0.1.0",
   "homepage": "https://fernandocamargo.github.io/dry-in-react",
-  "private": false,
+  "private": true,
   "dependencies": {
     "gh-pages": "^2.0.1",
     "prop-types": "^15.7.2",
@@ -13,9 +13,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -b master -d build",
+    "deploy": "gh-pages -d build",
+    "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

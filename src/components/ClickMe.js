@@ -1,14 +1,13 @@
-import React, { useCallback } from "react";
+import React from "react";
 
 import GenericButton from "components/GenericButton";
 
-export default () => (
+const ClickMe = () => (
   <GenericButton onClick={() => window.alert("closePage();")}>
-    {useCallback(
-      ({ Button, style }) => (
-        <Button style={{ ...style, background: "blue" }}>ClickMe</Button>
-      ),
-      []
+    {({ Button, style }) => (
+      <Button style={{ ...style, background: "blue" }}>ClickMe</Button>
     )}
   </GenericButton>
 );
+
+export default ClickMe;

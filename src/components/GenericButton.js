@@ -3,6 +3,9 @@ import { oneOfType, node, func } from "prop-types";
 
 const isComponent = object => typeof object === "function";
 
+const identify = component =>
+  Object.assign(component, { displayName: "Custom(GenericButton)" });
+
 const stringify = callback =>
   String(callback)
     .replace(/\r?\n|\r/g, "")
@@ -11,7 +14,7 @@ const stringify = callback =>
 const print = string =>
   console.log(
     `Your callback %c${string}%c was triggered`,
-    "background-color: #353740; color: #a6e22e; font-weight: bold; padding: 5px;",
+    "background-color: red; color: white; font-weight: bold; padding: 5px;",
     "background-color: inherit; color: inherit; font-weight: inherit; padding: inherit;"
   );
 
@@ -21,15 +24,24 @@ const track = callback =>
     [callback]
   );
 
+const style = {
+  border: "solid 1px black",
+  borderRadius: "5px",
+  cursor: "pointer",
+  display: "block",
+  fontSize: "20px",
+  margin: "20px 0",
+  padding: "10px"
+};
+
 const GenericButton = ({ children, onClick }) => {
-  const style = { fontSize: 20 };
-  const Button = useCallback(
-    props => <button onClick={track(onClick)} style={style} {...props} />,
-    []
+  const Button = props => (
+    <button onClick={track(onClick)} style={style} {...props} />
   );
+  const pieces = { Button, track, style };
 
   return isComponent(children)
-    ? createElement(children, { Button, track, style })
+    ? createElement(identify(children), pieces)
     : createElement(Button, { children });
 };
 

@@ -1,24 +1,21 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { bool } from "prop-types";
 
 import GenericButton from "components/GenericButton";
 
 const CloseModal = ({ active }) => (
   <GenericButton onClick={() => window.alert("closeModal();")}>
-    {useCallback(
-      ({ Button, style }) => (
-        <Button
-          style={{
-            ...style,
-            fontSize: style.fontSize / 2,
-            background: "green"
-          }}
-          disabled={!active}
-        >
-          Close Modal
-        </Button>
-      ),
-      []
+    {({ Button, style }) => (
+      <Button
+        style={{
+          ...style,
+          fontSize: `${parseInt(style.fontSize, 10) / 2}px`,
+          background: "orange"
+        }}
+        disabled={!active}
+      >
+        Close Modal
+      </Button>
     )}
   </GenericButton>
 );

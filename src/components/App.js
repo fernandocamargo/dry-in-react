@@ -1,19 +1,21 @@
-import React from "react";
+import React, { Fragment } from "react";
 
 import GenericButton from "components/GenericButton";
-import Button from "components/Button";
+import Simple from "components/Simple";
 import ClickMe from "components/ClickMe";
 import CloseModal from "components/CloseModal";
-import Image from "components/Image";
+import Input from "components/Input";
 
-export default () => (
-  <div>
+const App = () => (
+  <Fragment>
     <GenericButton onClick={() => window.alert("nonCustomized();")}>
-      Simple as possible
+      Non-customized
     </GenericButton>
-    <Button />
+    <Simple />
     <ClickMe />
     <CloseModal active={false} />
-    <Image />
-  </div>
+    <Input />
+  </Fragment>
 );
+
+export default App;
