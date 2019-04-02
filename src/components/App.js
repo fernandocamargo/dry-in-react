@@ -13,7 +13,7 @@ const App = () => {
   return (
     <Fragment>
       <GenericButton onClick={toggleActiveness}>
-        Toggle <strong>close modal</strong> button activeness
+        Toggle buttons <strong>activeness</strong>
       </GenericButton>
       <Simple active={active} />
       <ClickMe />
