@@ -1,18 +1,28 @@
 # DRY in React: A Study in Composability Over Configuration
 
-> **Thesis:** The problem with DRY isn't the principle itself, but the approach. Instead of anticipating flexibility through configuration props, expose internal primitives for composition.
+## 📖 Start Here
 
-**Demo:** https://fernandocamargo.github.io/dry-in-react/
+**Before reading this:** Please read Swizec Teller's original article:
+
+### [**"DRY is a footgun, remember to YAGNI"**](https://swizec.com/blog/dry-is-a-footgun-remember-to-yagni/)
+
+This codebase is a response to that article. Understanding Swizec's argument is essential context for the counter-thesis presented here.
+
+---
+
+## Thesis
+
+The problem with [DRY (Don't Repeat Yourself)](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) isn't the principle itself, but the approach. Instead of anticipating flexibility through configuration props, **expose internal primitives for composition**.
 
 ---
 
 ## Context: The DRY Footgun
 
-In his article ["DRY is a footgun, remember to YAGNI"](https://swizec.com/blog/dry-is-a-footgun-remember-to-yagni/), Swizec identifies a critical problem with premature abstraction:
+In his article, Swizec identifies a critical problem with premature abstraction. He describes how a generic button component evolves:
 
 > "You start with a simple button component. Then you need a blue one. Then a green one. Then one that's disabled sometimes. Then one that's only disabled when some other state is true. Then..."
 
-The pattern he describes is familiar to anyone who's worked in a large React codebase: a component starts simple, accumulates props to handle edge cases, and eventually becomes a configuration nightmare:
+The pattern he describes is familiar to anyone who's worked in a large [React](https://react.dev/) codebase: a component starts simple, accumulates props to handle edge cases, and eventually becomes a configuration nightmare:
 
 ```javascript
 // The anti-pattern Swizec warns against
@@ -28,13 +38,21 @@ The pattern he describes is familiar to anyone who's worked in a large React cod
 />
 ```
 
-Swizec's conclusion: **DRY leads to bloated abstractions. Use YAGNI instead—don't abstract until patterns genuinely emerge.**
+Swizec's conclusion:
+
+> **DRY leads to bloated abstractions. Use YAGNI instead—don't abstract until patterns genuinely emerge.**
+
+([YAGNI: "You Aren't Gonna Need It"](https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it))
+
+---
 
 ## The Problem with This Conclusion
 
 Swizec is right about the symptom, but the diagnosis misses something crucial. The issue isn't DRY itself—it's **configuration-based abstraction**.
 
-When you try to make a component flexible by adding props for every scenario, you're making a flawed assumption: **you can predict what flexibility points your consumers will need.**
+When you try to make a component flexible by adding props for every scenario, you're making a flawed assumption:
+
+**You can predict what flexibility points your consumers will need.**
 
 You can't.
 
@@ -121,16 +139,16 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
 ```
 
 **Why this succeeds:**
-1. GenericButton solves **one problem**: a tracked, styled button primitive
+1. `GenericButton` solves **one problem**: a tracked, styled button primitive
 2. Internal pieces (`Button`, `track`, `style`) are **explicitly exposed**
-3. Consumers compose what they need without GenericButton knowing about their use cases
+3. Consumers compose what they need without `GenericButton` knowing about their use cases
 4. No props proliferation—flexibility comes from composition, not configuration
 
 ---
 
 ## The Pattern: Render Props for Primitive Exposure
 
-The critical insight is in how `GenericButton` handles children:
+The critical insight is in how `GenericButton` handles children using the [Render Props pattern](https://legacy.reactjs.org/docs/render-props.html):
 
 ```javascript
 return typeof children === "function"
@@ -158,7 +176,7 @@ This dual consumption pattern enables:
 </GenericButton>
 ```
 
-The consumer decides the complexity level. GenericButton doesn't predict it.
+The consumer decides the complexity level. `GenericButton` doesn't predict it.
 
 ---
 
@@ -181,7 +199,7 @@ const ClickMe = () => (
 ```
 
 **What's happening:**
-- Receives `Button` and `style` from GenericButton
+- Receives `Button` and `style` from `GenericButton`
 - Spreads base styles and overrides `background`
 - Reuses tracking and base button logic without reimplementation
 
@@ -196,12 +214,12 @@ const Activable = ({ onClick, children, active }) => (
 ```
 
 **What's happening:**
-- Wraps GenericButton to add activation state behavior
-- Acts as a **composition middleware**—receives pieces from GenericButton and forwards them
+- Wraps `GenericButton` to add activation state behavior
+- Acts as a **composition middleware**—receives pieces from `GenericButton` and forwards them
 - Doesn't know what children will do with pieces
 - Single responsibility: map `active` prop to `disabled` state
 
-### Level 3: Complex Composition with Conditional Rendering (`Input.js`)
+### Level 3: Complex Composition with Side Effects (`Input.js`)
 
 ```javascript
 const Input = () => {
@@ -241,7 +259,8 @@ const Input = () => {
 - Uses only `track` and `style` pieces (ignores `Button`)
 - Renders completely different elements (`<p>` or `<input>`)
 - Demonstrates that pieces are **à la carte**—use what you need
-- GenericButton never anticipated this use case, yet it works perfectly
+- `GenericButton` never anticipated this use case, yet it works perfectly
+- Uses [React Hooks](https://react.dev/reference/react) ([`useState`](https://react.dev/reference/react/useState), [`useEffect`](https://react.dev/reference/react/useEffect), [`useCallback`](https://react.dev/reference/react/useCallback)) for state management
 
 ---
 
@@ -277,7 +296,7 @@ Traditional configuration-based components force **the component** to control ho
 <GenericButton variant="primary" />  // Consumer limited to predefined variants
 ```
 
-Composition-based components invert this:
+Composition-based components invert this ([Inversion of Control](https://kentcdodds.com/blog/inversion-of-control)):
 
 ```javascript
 // Consumer controls the composition
@@ -286,7 +305,7 @@ Composition-based components invert this:
 </GenericButton>
 ```
 
-This is true **dependency inversion** at the component level.
+This is true [**Dependency Inversion**](https://en.wikipedia.org/wiki/Dependency_inversion_principle) at the component level.
 
 ---
 
@@ -299,6 +318,7 @@ Let's revisit Swizec's concern: as requirements evolve, configuration-based comp
 **Requirement:** "We need a button that shows an image after loading."
 
 #### Configuration Approach (Breaks Down)
+
 ```javascript
 // Now GenericButton needs to know about images and loading states
 <GenericButton
@@ -310,9 +330,12 @@ Let's revisit Swizec's concern: as requirements evolve, configuration-based comp
 />
 ```
 
-Every new requirement modifies GenericButton. This is the footgun Swizec warns about.
+Every new requirement modifies `GenericButton`. This is the footgun Swizec warns about:
+
+> "Every time you need a variation, you modify the shared component. It grows. It becomes complex. Eventually it's easier to duplicate than to use."
 
 #### Composition Approach (Scales Naturally)
+
 ```javascript
 // GenericButton doesn't change at all
 <GenericButton>
@@ -324,7 +347,7 @@ Every new requirement modifies GenericButton. This is the footgun Swizec warns a
 </GenericButton>
 ```
 
-The requirement is handled **at the consumer level** using exposed primitives. GenericButton remains untouched.
+The requirement is handled **at the consumer level** using exposed primitives. `GenericButton` remains untouched.
 
 ---
 
@@ -387,6 +410,8 @@ return typeof children === "function"
 
 **Why:** Allows dual consumption (simple JSX or advanced composition).
 
+**Reference:** [React Render Props documentation](https://legacy.reactjs.org/docs/render-props.html)
+
 ### 2. Component Identification for Debugging
 
 ```javascript
@@ -394,7 +419,7 @@ const identify = component =>
   Object.assign(component, { displayName: "Custom(GenericButton)" });
 ```
 
-**Why:** React DevTools shows meaningful names for dynamically created components.
+**Why:** [React DevTools](https://react.dev/learn/react-developer-tools) shows meaningful names for dynamically created components.
 
 ### 3. Enhancement Props via Rest/Spread
 
@@ -406,7 +431,9 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
 };
 ```
 
-**Why:** Consumers can override any prop (e.g., `disabled`, `style`) without GenericButton needing to know about them.
+**Why:** Consumers can override any prop (e.g., `disabled`, `style`) without `GenericButton` needing to know about them.
+
+**Reference:** [Spread syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax), [Rest parameters](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/rest_parameters)
 
 ### 4. Utility Exposure (Not Just Components)
 
@@ -436,6 +463,8 @@ const pieces = { Button, track, style };
 
 Swizec's article recommends YAGNI: don't abstract until patterns emerge from duplicated code.
 
+> "The best time to generalize code is **never**. The second best time is after you've written the same code 3+ times and deeply understand the pattern."
+
 This codebase agrees with YAGNI but adds a nuance:
 
 **When you do abstract, abstract primitives, not configurations.**
@@ -454,7 +483,7 @@ const GenericButton = ({ children }) => {
 ```
 
 **Why primitive abstraction is safe:**
-1. GenericButton doesn't predict use cases (no `variant`, `size`, `color` props)
+1. `GenericButton` doesn't predict use cases (no `variant`, `size`, `color` props)
 2. It provides **tools** (Button, track, style) not **solutions** (variants)
 3. Adding a new use case **never requires changing GenericButton**
 4. Composition is pay-as-you-go—simple cases stay simple
@@ -463,17 +492,17 @@ const GenericButton = ({ children }) => {
 
 ## Running the Demo
 
-This project uses Create React App with React 16.8+ (Hooks support).
+This project uses [Create React App](https://create-react-app.dev/) with React 16.8+ (Hooks support).
 
 ### Setup
 
+With [npm](https://www.npmjs.com/):
 ```bash
 npm install
 npm start
 ```
 
-or with Yarn:
-
+Or with [Yarn](https://yarnpkg.com/):
 ```bash
 yarn install
 yarn start
@@ -528,13 +557,27 @@ This codebase is a proof: you can have reusable components without prop explosio
 
 ## Further Reading
 
+### The Original Argument
 - [Swizec: "DRY is a footgun, remember to YAGNI"](https://swizec.com/blog/dry-is-a-footgun-remember-to-yagni/) - The article this challenges
-- [React Docs: Render Props](https://legacy.reactjs.org/docs/render-props.html) - Official pattern documentation
+
+### Design Principles
+- [DRY (Don't Repeat Yourself)](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) - Wikipedia
+- [YAGNI (You Aren't Gonna Need It)](https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it) - Wikipedia
+- [SOLID Principles](https://en.wikipedia.org/wiki/SOLID) - Including Dependency Inversion
+
+### React Patterns
+- [React Documentation](https://react.dev/) - Official React docs
+- [React Hooks](https://react.dev/reference/react) - useState, useEffect, useCallback
+- [Render Props](https://legacy.reactjs.org/docs/render-props.html) - Official pattern documentation
 - [Kent C. Dodds: "Inversion of Control"](https://kentcdodds.com/blog/inversion-of-control) - Related composition patterns
 - [Michael Jackson: "Never Write Another HoC"](https://www.youtube.com/watch?v=BcVAq3YFiuc) - Render props vs Higher-Order Components
 
+### Tools
+- [Create React App](https://create-react-app.dev/) - Zero-config React setup
+- [React DevTools](https://react.dev/learn/react-developer-tools) - Browser debugging extension
+
 ---
 
-**Built with:** React 16.8.6, Create React App 2.1.8
+**Built with:** [React](https://react.dev/) 16.8.6, [Create React App](https://create-react-app.dev/) 2.1.8
 
 **License:** MIT
