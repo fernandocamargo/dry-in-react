@@ -24,7 +24,7 @@ In his article, Swizec identifies a critical problem with premature abstraction.
 
 The pattern he describes is familiar to anyone who's worked in a large [React](https://react.dev/) codebase: a component starts simple, accumulates props to handle edge cases, and eventually becomes a configuration nightmare:
 
-```javascript
+```jsx
 // The anti-pattern Swizec warns against
 <GenericButton
   variant="primary"
@@ -105,6 +105,8 @@ const GenericButton = ({
 ### ✅ Composition-Based DRY (This Codebase)
 
 ```javascript
+import { createElement, useCallback } from 'react';
+
 // Expose internal primitives for composition
 const GenericButton = ({ children, onClick, ...enhancement }) => {
   const track = callback =>
@@ -120,21 +122,22 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
     cursor: "pointer"
   };
 
-  const Button = props => (
-    <button
-      onClick={track(onClick)}
-      style={style}
-      {...props}
-      {...enhancement}
-    />
-  );
+  const Button = props =>
+    createElement('button', {
+      onClick: track(onClick),
+      style: style,
+      ...props,
+      ...enhancement
+    });
 
   // The key: expose pieces for composition
   const pieces = { Button, track, style };
 
-  return typeof children === "function"
-    ? children(pieces)
-    : <Button>{children}</Button>;
+  const isComponent = object => typeof object === "function";
+
+  return isComponent(children)
+    ? createElement(children, pieces)
+    : createElement(Button, { children });
 };
 ```
 
@@ -144,6 +147,8 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
 3. Consumers compose what they need without `GenericButton` knowing about their use cases
 4. No props proliferation—flexibility comes from composition, not configuration
 
+**Note:** This codebase uses [`React.createElement`](https://react.dev/reference/react/createElement) instead of JSX to demonstrate the composition pattern more explicitly.
+
 ---
 
 ## The Pattern: Render Props for Primitive Exposure
@@ -151,29 +156,28 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
 The critical insight is in how `GenericButton` handles children using the [Render Props pattern](https://legacy.reactjs.org/docs/render-props.html):
 
 ```javascript
-return typeof children === "function"
-  ? children(pieces)  // Advanced: pass primitives for composition
-  : <Button>{children}</Button>;  // Simple: just render a button
+const isComponent = object => typeof object === "function";
+
+return isComponent(children)
+  ? createElement(children, pieces)  // Advanced: pass primitives for composition
+  : createElement(Button, { children });  // Simple: just render a button
 ```
 
 This dual consumption pattern enables:
 
 ### Basic Usage (No Composition)
 ```javascript
-<GenericButton onClick={() => alert('clicked')}>
-  Click Me
-</GenericButton>
+createElement(GenericButton, { onClick: () => alert('clicked') }, 'Click Me')
 ```
 
 ### Advanced Usage (Compose Primitives)
 ```javascript
-<GenericButton onClick={() => alert('clicked')}>
-  {({ Button, style, track }) => (
-    <Button style={{ ...style, background: 'green' }}>
-      Custom Button
-    </Button>
-  )}
-</GenericButton>
+createElement(
+  GenericButton,
+  { onClick: () => alert('clicked') },
+  ({ Button, style, track }) =>
+    createElement(Button, { style: { ...style, background: 'green' } }, 'Custom Button')
+)
 ```
 
 The consumer decides the complexity level. `GenericButton` doesn't predict it.
@@ -187,15 +191,22 @@ Let's trace how different components consume `GenericButton` with varying levels
 ### Level 1: Direct Primitive Usage (`ClickMe.js`)
 
 ```javascript
-const ClickMe = () => (
-  <GenericButton onClick={() => alert("closePage()")}>
-    {({ Button, style }) => (
-      <Button style={{ ...style, background: "blue" }}>
-        ClickMe
-      </Button>
-    )}
-  </GenericButton>
-);
+import { createElement } from 'react';
+import GenericButton from './GenericButton';
+
+const ClickMe = () =>
+  createElement(
+    GenericButton,
+    { onClick: () => alert("closePage()") },
+    ({ Button, style }) =>
+      createElement(
+        Button,
+        { style: { ...style, background: "blue" } },
+        'ClickMe'
+      )
+  );
+
+export default ClickMe;
 ```
 
 **What's happening:**
@@ -206,53 +217,74 @@ const ClickMe = () => (
 ### Level 2: Layered Composition (`Activable.js`)
 
 ```javascript
-const Activable = ({ onClick, children, active }) => (
-  <GenericButton onClick={onClick} disabled={!active}>
-    {pieces => children(pieces)}
-  </GenericButton>
-);
+import { createElement } from 'react';
+import GenericButton from './GenericButton';
+
+const identify = component =>
+  Object.assign(component, { displayName: "Custom(GenericButton)" });
+
+const Activable = ({ onClick, children, active }) =>
+  createElement(
+    GenericButton,
+    { onClick, disabled: !active },
+    pieces => createElement(identify(children), pieces)
+  );
+
+export default Activable;
 ```
 
 **What's happening:**
 - Wraps `GenericButton` to add activation state behavior
 - Acts as a **composition middleware**—receives pieces from `GenericButton` and forwards them
+- Uses `identify` to set component `displayName` for [React DevTools](https://react.dev/learn/react-developer-tools)
 - Doesn't know what children will do with pieces
 - Single responsibility: map `active` prop to `disabled` state
 
 ### Level 3: Complex Composition with Side Effects (`Input.js`)
 
 ```javascript
+import { createElement, useState, useEffect } from 'react';
+import GenericButton from './GenericButton';
+
+const URL = "https://placekitten.com/300/300";
+
+const createImage = src => {
+  const img = new Image();
+  img.src = src;
+  return img;
+};
+
 const Input = () => {
   const [loading, setLoading] = useState(true);
+  const load = () => setLoading(false);
 
   useEffect(() => {
-    const img = new Image();
-    img.addEventListener("load", () => setLoading(false));
-    img.src = "https://placekitten.com/300/300";
+    createImage(URL).addEventListener("load", load, true);
   }, []);
 
-  return (
-    <GenericButton>
-      {({ track, style }) =>
-        loading ? (
-          <p style={{ ...style, border: "none", cursor: "default" }}>
-            Loading image...
-          </p>
-        ) : (
-          <input
-            type="image"
-            src="https://placekitten.com/300/300"
-            alt="Image as button"
-            onClick={track(() => alert("clickImage()"))}
-            onMouseOver={track(() => console.log("mouseOverImage()"))}
-            onMouseOut={track(() => console.log("mouseOutImage()"))}
-            style={{ ...style, padding: "0" }}
-          />
-        )
-      }
-    </GenericButton>
+  return createElement(
+    GenericButton,
+    null,
+    ({ track, style }) =>
+      loading
+        ? createElement(
+            'p',
+            { style: { ...style, border: "none", cursor: "default" } },
+            'Loading image...'
+          )
+        : createElement('input', {
+            type: "image",
+            src: URL,
+            alt: "Image as button",
+            onClick: track(() => alert("clickImage()")),
+            onMouseOver: track(() => console.log("mouseOverImage()")),
+            onMouseOut: track(() => console.log("mouseOutImage()")),
+            style: { ...style, padding: "0" }
+          })
   );
 };
+
+export default Input;
 ```
 
 **What's happening:**
@@ -291,7 +323,7 @@ type GenericButtonProps = {
 
 Traditional configuration-based components force **the component** to control how consumers use it:
 
-```javascript
+```jsx
 // Component controls the consumer
 <GenericButton variant="primary" />  // Consumer limited to predefined variants
 ```
@@ -300,9 +332,11 @@ Composition-based components invert this ([Inversion of Control](https://kentcdo
 
 ```javascript
 // Consumer controls the composition
-<GenericButton>
-  {({ Button, style }) => /* Consumer decides what to render */}
-</GenericButton>
+createElement(
+  GenericButton,
+  null,
+  ({ Button, style }) => /* Consumer decides what to render */
+)
 ```
 
 This is true [**Dependency Inversion**](https://en.wikipedia.org/wiki/Dependency_inversion_principle) at the component level.
@@ -319,7 +353,7 @@ Let's revisit Swizec's concern: as requirements evolve, configuration-based comp
 
 #### Configuration Approach (Breaks Down)
 
-```javascript
+```jsx
 // Now GenericButton needs to know about images and loading states
 <GenericButton
   variant="image-loader"
@@ -338,13 +372,18 @@ Every new requirement modifies `GenericButton`. This is the footgun Swizec warns
 
 ```javascript
 // GenericButton doesn't change at all
-<GenericButton>
-  {({ track, style }) => (
+createElement(
+  GenericButton,
+  null,
+  ({ track, style }) =>
     loading
-      ? <p style={style}>Loading...</p>
-      : <input type="image" src="..." onClick={track(onClick)} />
-  )}
-</GenericButton>
+      ? createElement('p', { style }, 'Loading...')
+      : createElement('input', {
+          type: "image",
+          src: imageUrl,
+          onClick: track(onClick)
+        })
+)
 ```
 
 The requirement is handled **at the consumer level** using exposed primitives. `GenericButton` remains untouched.
@@ -355,37 +394,29 @@ The requirement is handled **at the consumer level** using exposed primitives. `
 
 This codebase demonstrates a layered composition architecture:
 
-```
-┌─────────────────────────────────────┐
-│ App.js (Orchestration)              │
-│ - Manages global state (active)     │
-│ - Composes feature components       │
-└─────────────────────────────────────┘
-            │
-            ├─────────────────────────────────────┐
-            │                                     │
-┌───────────▼──────────┐              ┌──────────▼─────────┐
-│ Simple.js            │              │ Input.js           │
-│ CloseModal.js        │              │ ClickMe.js         │
-│ (Feature Layer)      │              │ (Feature Layer)    │
-│ - Use Activable      │              │ - Use GenericButton│
-│ - Compose for needs  │              │ - Compose for needs│
-└───────────┬──────────┘              └──────────┬─────────┘
-            │                                     │
-            │         ┌───────────────────────────┘
-            │         │
-┌───────────▼─────────▼──────────────┐
-│ Activable.js (Middleware Layer)    │
-│ - Adds activation behavior          │
-│ - Forwards pieces from GenericButton│
-└───────────┬────────────────────────┘
-            │
-┌───────────▼────────────────────────┐
-│ GenericButton.js (Primitive Layer) │
-│ - Provides Button, track, style    │
-│ - Single responsibility            │
-│ - No business logic                │
-└────────────────────────────────────┘
+```mermaid
+graph TB
+    App["App.js<br/>(Orchestration Layer)<br/>• Manages global state (active)<br/>• Composes feature components"]
+
+    Simple["Simple.js<br/>CloseModal.js<br/>(Feature Layer)<br/>• Use Activable<br/>• Compose for needs"]
+
+    Direct["Input.js<br/>ClickMe.js<br/>(Feature Layer)<br/>• Use GenericButton<br/>• Compose for needs"]
+
+    Activable["Activable.js<br/>(Middleware Layer)<br/>• Adds activation behavior<br/>• Forwards pieces from GenericButton"]
+
+    GenericButton["GenericButton.js<br/>(Primitive Layer)<br/>• Provides Button, track, style<br/>• Single responsibility<br/>• No business logic"]
+
+    App --> Simple
+    App --> Direct
+    Simple --> Activable
+    Direct --> GenericButton
+    Activable --> GenericButton
+
+    style App fill:#e1f5ff
+    style Simple fill:#fff4e1
+    style Direct fill:#fff4e1
+    style Activable fill:#f0e1ff
+    style GenericButton fill:#e1ffe1
 ```
 
 Each layer:
@@ -403,12 +434,14 @@ This creates a **fractal composition pattern**—the same principle applies at e
 
 ```javascript
 const pieces = { Button, track, style };
-return typeof children === "function"
-  ? children(pieces)
-  : <Button>{children}</Button>;
+const isComponent = object => typeof object === "function";
+
+return isComponent(children)
+  ? createElement(children, pieces)
+  : createElement(Button, { children });
 ```
 
-**Why:** Allows dual consumption (simple JSX or advanced composition).
+**Why:** Allows dual consumption (simple elements or advanced composition).
 
 **Reference:** [React Render Props documentation](https://legacy.reactjs.org/docs/render-props.html)
 
@@ -421,13 +454,17 @@ const identify = component =>
 
 **Why:** [React DevTools](https://react.dev/learn/react-developer-tools) shows meaningful names for dynamically created components.
 
+**Reference:** [`displayName` for debugging](https://legacy.reactjs.org/docs/react-component.html#displayname)
+
 ### 3. Enhancement Props via Rest/Spread
 
 ```javascript
 const GenericButton = ({ children, onClick, ...enhancement }) => {
-  const Button = props => (
-    <button {...props} {...enhancement} />
-  );
+  const Button = props =>
+    createElement('button', {
+      ...props,
+      ...enhancement
+    });
 };
 ```
 
@@ -446,13 +483,15 @@ const pieces = { Button, track, style };
 ### 5. Progressive Enhancement
 
 ```javascript
-// Simple usage (no function child)
-<GenericButton onClick={...}>Click Me</GenericButton>
+// Simple usage (non-function child)
+createElement(GenericButton, { onClick: handler }, 'Click Me')
 
 // Advanced usage (function child)
-<GenericButton onClick={...}>
-  {pieces => /* custom composition */}
-</GenericButton>
+createElement(
+  GenericButton,
+  { onClick: handler },
+  pieces => /* custom composition */
+)
 ```
 
 **Why:** Beginners use simple syntax. Advanced users access primitives when needed.
@@ -478,7 +517,10 @@ const GenericButton = ({ variant, size, color }) => { /* ... */ };
 // Primitive abstraction (this codebase says: expose pieces early)
 const GenericButton = ({ children }) => {
   const pieces = { Button, track, style };
-  return typeof children === "function" ? children(pieces) : <Button>{children}</Button>;
+  const isComponent = object => typeof object === "function";
+  return isComponent(children)
+    ? createElement(children, pieces)
+    : createElement(Button, { children });
 };
 ```
 
@@ -535,7 +577,7 @@ Swizec's article is right that **premature abstraction is dangerous**. Where it 
 
 The configuration-based approach fails because it assumes you can predict flexibility needs:
 
-```javascript
+```jsx
 // This requires predicting the future
 <GenericButton variant="?" size="?" color="?" disabled="?" />
 ```
@@ -544,9 +586,11 @@ The composition-based approach succeeds because it makes no predictions:
 
 ```javascript
 // This provides tools for consumers to solve their own problems
-<GenericButton>
-  {({ Button, style, track }) => /* consumer decides */}
-</GenericButton>
+createElement(
+  GenericButton,
+  null,
+  ({ Button, style, track }) => /* consumer decides */
+)
 ```
 
 **The thesis:** DRY is not a footgun. Trying to anticipate flexibility through configuration is the footgun. The solution is to expose internal primitives for composition, allowing consumers to build their own solutions from your tools.
@@ -567,14 +611,21 @@ This codebase is a proof: you can have reusable components without prop explosio
 
 ### React Patterns
 - [React Documentation](https://react.dev/) - Official React docs
+- [`React.createElement`](https://react.dev/reference/react/createElement) - Creating elements without JSX
 - [React Hooks](https://react.dev/reference/react) - useState, useEffect, useCallback
 - [Render Props](https://legacy.reactjs.org/docs/render-props.html) - Official pattern documentation
+- [`displayName`](https://legacy.reactjs.org/docs/react-component.html#displayname) - Component naming for debugging
 - [Kent C. Dodds: "Inversion of Control"](https://kentcdodds.com/blog/inversion-of-control) - Related composition patterns
 - [Michael Jackson: "Never Write Another HoC"](https://www.youtube.com/watch?v=BcVAq3YFiuc) - Render props vs Higher-Order Components
+
+### JavaScript Fundamentals
+- [Spread syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax) - MDN
+- [Rest parameters](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/rest_parameters) - MDN
 
 ### Tools
 - [Create React App](https://create-react-app.dev/) - Zero-config React setup
 - [React DevTools](https://react.dev/learn/react-developer-tools) - Browser debugging extension
+- [Mermaid](https://mermaid.js.org/) - Diagram rendering (used in architecture diagram)
 
 ---
 
