@@ -122,13 +122,14 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
     cursor: "pointer"
   };
 
-  const Button = props =>
-    createElement('button', {
-      onClick: track(onClick),
-      style: style,
-      ...props,
-      ...enhancement
-    });
+  const Button = props => (
+    <button
+      onClick={track(onClick)}
+      style={style}
+      {...props}
+      {...enhancement}
+    />
+  );
 
   // The key: expose pieces for composition
   const pieces = { Button, track, style };
@@ -136,8 +137,8 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
   const isComponent = object => typeof object === "function";
 
   return isComponent(children)
-    ? createElement(children, pieces)
-    : createElement(Button, { children });
+    ? createElement(children, pieces)  // Pass pieces to function child
+    : <Button>{children}</Button>;
 };
 ```
 
@@ -147,7 +148,7 @@ const GenericButton = ({ children, onClick, ...enhancement }) => {
 3. Consumers compose what they need without `GenericButton` knowing about their use cases
 4. No props proliferation—flexibility comes from composition, not configuration
 
-**Note:** This codebase uses [`React.createElement`](https://react.dev/reference/react/createElement) instead of JSX to demonstrate the composition pattern more explicitly.
+**Note:** The key mechanism is using [`createElement`](https://react.dev/reference/react/createElement) to invoke the function child with pieces: `createElement(children, pieces)`. This is what enables the [render props pattern](https://legacy.reactjs.org/docs/render-props.html).
 
 ---
 
@@ -160,24 +161,27 @@ const isComponent = object => typeof object === "function";
 
 return isComponent(children)
   ? createElement(children, pieces)  // Advanced: pass primitives for composition
-  : createElement(Button, { children });  // Simple: just render a button
+  : <Button>{children}</Button>;     // Simple: just render a button
 ```
 
 This dual consumption pattern enables:
 
 ### Basic Usage (No Composition)
-```javascript
-createElement(GenericButton, { onClick: () => alert('clicked') }, 'Click Me')
+```jsx
+<GenericButton onClick={() => alert('clicked')}>
+  Click Me
+</GenericButton>
 ```
 
 ### Advanced Usage (Compose Primitives)
-```javascript
-createElement(
-  GenericButton,
-  { onClick: () => alert('clicked') },
-  ({ Button, style, track }) =>
-    createElement(Button, { style: { ...style, background: 'green' } }, 'Custom Button')
-)
+```jsx
+<GenericButton onClick={() => alert('clicked')}>
+  {({ Button, style, track }) => (
+    <Button style={{ ...style, background: 'green' }}>
+      Custom Button
+    </Button>
+  )}
+</GenericButton>
 ```
 
 The consumer decides the complexity level. `GenericButton` doesn't predict it.
@@ -194,17 +198,15 @@ Let's trace how different components consume `GenericButton` with varying levels
 import { createElement } from 'react';
 import GenericButton from './GenericButton';
 
-const ClickMe = () =>
-  createElement(
-    GenericButton,
-    { onClick: () => alert("closePage()") },
-    ({ Button, style }) =>
-      createElement(
-        Button,
-        { style: { ...style, background: "blue" } },
-        'ClickMe'
-      )
-  );
+const ClickMe = () => (
+  <GenericButton onClick={() => alert("closePage()")}>
+    {({ Button, style }) => (
+      <Button style={{ ...style, background: "blue" }}>
+        ClickMe
+      </Button>
+    )}
+  </GenericButton>
+);
 
 export default ClickMe;
 ```
@@ -223,12 +225,11 @@ import GenericButton from './GenericButton';
 const identify = component =>
   Object.assign(component, { displayName: "Custom(GenericButton)" });
 
-const Activable = ({ onClick, children, active }) =>
-  createElement(
-    GenericButton,
-    { onClick, disabled: !active },
-    pieces => createElement(identify(children), pieces)
-  );
+const Activable = ({ onClick, children, active }) => (
+  <GenericButton onClick={onClick} disabled={!active}>
+    {pieces => createElement(identify(children), pieces)}
+  </GenericButton>
+);
 
 export default Activable;
 ```
@@ -236,6 +237,7 @@ export default Activable;
 **What's happening:**
 - Wraps `GenericButton` to add activation state behavior
 - Acts as a **composition middleware**—receives pieces from `GenericButton` and forwards them
+- Uses `createElement(identify(children), pieces)` to invoke the child function with pieces
 - Uses `identify` to set component `displayName` for [React DevTools](https://react.dev/learn/react-developer-tools)
 - Doesn't know what children will do with pieces
 - Single responsibility: map `active` prop to `disabled` state
@@ -262,25 +264,26 @@ const Input = () => {
     createImage(URL).addEventListener("load", load, true);
   }, []);
 
-  return createElement(
-    GenericButton,
-    null,
-    ({ track, style }) =>
-      loading
-        ? createElement(
-            'p',
-            { style: { ...style, border: "none", cursor: "default" } },
-            'Loading image...'
-          )
-        : createElement('input', {
-            type: "image",
-            src: URL,
-            alt: "Image as button",
-            onClick: track(() => alert("clickImage()")),
-            onMouseOver: track(() => console.log("mouseOverImage()")),
-            onMouseOut: track(() => console.log("mouseOutImage()")),
-            style: { ...style, padding: "0" }
-          })
+  return (
+    <GenericButton>
+      {({ track, style }) =>
+        loading ? (
+          <p style={{ ...style, border: "none", cursor: "default" }}>
+            Loading image...
+          </p>
+        ) : (
+          <input
+            type="image"
+            src={URL}
+            alt="Image as button"
+            onClick={track(() => alert("clickImage()"))}
+            onMouseOver={track(() => console.log("mouseOverImage()"))}
+            onMouseOut={track(() => console.log("mouseOutImage()"))}
+            style={{ ...style, padding: "0" }}
+          />
+        )
+      }
+    </GenericButton>
   );
 };
 
@@ -330,13 +333,11 @@ Traditional configuration-based components force **the component** to control ho
 
 Composition-based components invert this ([Inversion of Control](https://kentcdodds.com/blog/inversion-of-control)):
 
-```javascript
+```jsx
 // Consumer controls the composition
-createElement(
-  GenericButton,
-  null,
-  ({ Button, style }) => /* Consumer decides what to render */
-)
+<GenericButton>
+  {({ Button, style }) => /* Consumer decides what to render */}
+</GenericButton>
 ```
 
 This is true [**Dependency Inversion**](https://en.wikipedia.org/wiki/Dependency_inversion_principle) at the component level.
@@ -370,20 +371,21 @@ Every new requirement modifies `GenericButton`. This is the footgun Swizec warns
 
 #### Composition Approach (Scales Naturally)
 
-```javascript
+```jsx
 // GenericButton doesn't change at all
-createElement(
-  GenericButton,
-  null,
-  ({ track, style }) =>
-    loading
-      ? createElement('p', { style }, 'Loading...')
-      : createElement('input', {
-          type: "image",
-          src: imageUrl,
-          onClick: track(onClick)
-        })
-)
+<GenericButton>
+  {({ track, style }) =>
+    loading ? (
+      <p style={style}>Loading...</p>
+    ) : (
+      <input
+        type="image"
+        src={imageUrl}
+        onClick={track(onClick)}
+      />
+    )
+  }
+</GenericButton>
 ```
 
 The requirement is handled **at the consumer level** using exposed primitives. `GenericButton` remains untouched.
@@ -437,11 +439,13 @@ const pieces = { Button, track, style };
 const isComponent = object => typeof object === "function";
 
 return isComponent(children)
-  ? createElement(children, pieces)
-  : createElement(Button, { children });
+  ? createElement(children, pieces)  // Invoke function child with pieces
+  : <Button>{children}</Button>;
 ```
 
-**Why:** Allows dual consumption (simple elements or advanced composition).
+**Why:** Allows dual consumption (simple JSX or advanced composition).
+
+**The key:** Using [`createElement(children, pieces)`](https://react.dev/reference/react/createElement) instead of `children(pieces)` allows passing pieces as props to the child function, enabling the render props pattern.
 
 **Reference:** [React Render Props documentation](https://legacy.reactjs.org/docs/render-props.html)
 
@@ -460,11 +464,9 @@ const identify = component =>
 
 ```javascript
 const GenericButton = ({ children, onClick, ...enhancement }) => {
-  const Button = props =>
-    createElement('button', {
-      ...props,
-      ...enhancement
-    });
+  const Button = props => (
+    <button {...props} {...enhancement} />
+  );
 };
 ```
 
@@ -482,16 +484,14 @@ const pieces = { Button, track, style };
 
 ### 5. Progressive Enhancement
 
-```javascript
+```jsx
 // Simple usage (non-function child)
-createElement(GenericButton, { onClick: handler }, 'Click Me')
+<GenericButton onClick={handler}>Click Me</GenericButton>
 
 // Advanced usage (function child)
-createElement(
-  GenericButton,
-  { onClick: handler },
-  pieces => /* custom composition */
-)
+<GenericButton onClick={handler}>
+  {pieces => /* custom composition */}
+</GenericButton>
 ```
 
 **Why:** Beginners use simple syntax. Advanced users access primitives when needed.
@@ -520,7 +520,7 @@ const GenericButton = ({ children }) => {
   const isComponent = object => typeof object === "function";
   return isComponent(children)
     ? createElement(children, pieces)
-    : createElement(Button, { children });
+    : <Button>{children}</Button>;
 };
 ```
 
@@ -584,13 +584,11 @@ The configuration-based approach fails because it assumes you can predict flexib
 
 The composition-based approach succeeds because it makes no predictions:
 
-```javascript
+```jsx
 // This provides tools for consumers to solve their own problems
-createElement(
-  GenericButton,
-  null,
-  ({ Button, style, track }) => /* consumer decides */
-)
+<GenericButton>
+  {({ Button, style, track }) => /* consumer decides */}
+</GenericButton>
 ```
 
 **The thesis:** DRY is not a footgun. Trying to anticipate flexibility through configuration is the footgun. The solution is to expose internal primitives for composition, allowing consumers to build their own solutions from your tools.
