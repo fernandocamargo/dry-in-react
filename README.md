@@ -192,7 +192,7 @@ The consumer decides the complexity level. `GenericButton` doesn't predict it.
 
 Let's trace how different components consume `GenericButton` with varying levels of composition.
 
-### Level 1: Direct Primitive Usage (`ClickMe.js`)
+### Level 1: Direct Primitive Usage ([`ClickMe.js`](src/components/ClickMe.js))
 
 ```javascript
 import { createElement } from 'react';
@@ -216,7 +216,7 @@ export default ClickMe;
 - Spreads base styles and overrides `background`
 - Reuses tracking and base button logic without reimplementation
 
-### Level 2: Layered Composition (`Activable.js`)
+### Level 2: Layered Composition ([`Activable.js`](src/components/Activable.js))
 
 ```javascript
 import { createElement } from 'react';
@@ -242,7 +242,7 @@ export default Activable;
 - Doesn't know what children will do with pieces
 - Single responsibility: map `active` prop to `disabled` state
 
-### Level 3: Complex Composition with Side Effects (`Input.js`)
+### Level 3: Complex Composition with Side Effects ([`Input.js`](src/components/Input.js))
 
 ```javascript
 import { createElement, useState, useEffect } from 'react';
@@ -415,7 +415,7 @@ Let's directly address every requirement Swizec mentions. The key insight: **Gen
 </GenericButton>
 ```
 
-**See implementation:** `src/components/ClickMe.js`
+**See implementation:** [`src/components/ClickMe.js`](src/components/ClickMe.js)
 
 ---
 
@@ -438,7 +438,7 @@ Let's directly address every requirement Swizec mentions. The key insight: **Gen
 </GenericButton>
 ```
 
-**See implementation:** `src/components/Simple.js`
+**See implementation:** [`src/components/Simple.js`](src/components/Simple.js)
 
 ---
 
@@ -483,7 +483,7 @@ Let's directly address every requirement Swizec mentions. The key insight: **Gen
 </GenericButton>
 ```
 
-**See implementation:** `src/components/Activable.js` (wraps GenericButton to add activation behavior)
+**See implementation:** [`src/components/Activable.js`](src/components/Activable.js) (wraps GenericButton to add activation behavior)
 
 ---
 
@@ -533,7 +533,7 @@ Let's directly address every requirement Swizec mentions. The key insight: **Gen
 </GenericButton>
 ```
 
-**See implementation:** `src/components/Input.js` (demonstrates loading state with image)
+**See implementation:** [`src/components/Input.js`](src/components/Input.js) (demonstrates loading state with image)
 
 ---
 
@@ -586,7 +586,7 @@ Let's directly address every requirement Swizec mentions. The key insight: **Gen
 </GenericButton>
 ```
 
-**See implementation:** `src/components/Input.js` (uses `<input type="image">` instead of `<button>`)
+**See implementation:** [`src/components/Input.js`](src/components/Input.js) (uses `<input type="image">` instead of `<button>`)
 
 ---
 
@@ -744,11 +744,12 @@ Open the browser console and interact with buttons. Notice:
 
 | File | Demonstrates |
 |------|-------------|
-| `src/components/GenericButton.js` | Primitive exposure pattern |
-| `src/components/Activable.js` | Middleware composition layer |
-| `src/components/Input.js` | Complex composition with side effects |
-| `src/components/Simple.js` | Style override composition |
-| `src/components/CloseModal.js` | Style transformation composition |
+| [`GenericButton.js`](src/components/GenericButton.js) | Primitive exposure pattern |
+| [`Activable.js`](src/components/Activable.js) | Middleware composition layer |
+| [`Input.js`](src/components/Input.js) | Complex composition with side effects |
+| [`Simple.js`](src/components/Simple.js) | Style override composition |
+| [`CloseModal.js`](src/components/CloseModal.js) | Style transformation composition |
+| [`App.js`](src/components/App.js) | Orchestration and state management |
 
 ---
 
