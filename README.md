@@ -392,41 +392,222 @@ The requirement is handled **at the consumer level** using exposed primitives. `
 
 ---
 
-## The Architecture: Layers of Composition
+## Swizec's Requirements: Solved Without Modification
 
-This codebase demonstrates a layered composition architecture:
+Let's directly address every requirement Swizec mentions. The key insight: **GenericButton never changes**—all variations are handled by consumers composing primitives.
 
-```mermaid
-graph TB
-    App["App.js<br/>(Orchestration Layer)<br/>• Manages global state (active)<br/>• Composes feature components"]
+### Requirement 1: "A blue button"
 
-    Simple["Simple.js<br/>CloseModal.js<br/>(Feature Layer)<br/>• Use Activable<br/>• Compose for needs"]
-
-    Direct["Input.js<br/>ClickMe.js<br/>(Feature Layer)<br/>• Use GenericButton<br/>• Compose for needs"]
-
-    Activable["Activable.js<br/>(Middleware Layer)<br/>• Adds activation behavior<br/>• Forwards pieces from GenericButton"]
-
-    GenericButton["GenericButton.js<br/>(Primitive Layer)<br/>• Provides Button, track, style<br/>• Single responsibility<br/>• No business logic"]
-
-    App --> Simple
-    App --> Direct
-    Simple --> Activable
-    Direct --> GenericButton
-    Activable --> GenericButton
-
-    style App fill:#e1f5ff
-    style Simple fill:#fff4e1
-    style Direct fill:#fff4e1
-    style Activable fill:#f0e1ff
-    style GenericButton fill:#e1ffe1
+**Configuration approach** (modifies GenericButton):
+```jsx
+// Add color prop to GenericButton
+<GenericButton color="blue">Click Me</GenericButton>
 ```
 
-Each layer:
-1. **Consumes** primitives from below
-2. **Composes** them for specific needs
-3. **Optionally exposes** its own primitives upward
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) => (
+    <Button style={{ ...style, background: "blue" }}>
+      Click Me
+    </Button>
+  )}
+</GenericButton>
+```
 
-This creates a **fractal composition pattern**—the same principle applies at every level.
+**See implementation:** `src/components/ClickMe.js`
+
+---
+
+### Requirement 2: "A green button"
+
+**Configuration approach** (adds to GenericButton):
+```jsx
+// Now GenericButton needs to handle both blue and green
+<GenericButton color="green">Click Me</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) => (
+    <Button style={{ ...style, background: "green" }}>
+      Click Me
+    </Button>
+  )}
+</GenericButton>
+```
+
+**See implementation:** `src/components/Simple.js`
+
+---
+
+### Requirement 3: "Disabled sometimes"
+
+**Configuration approach** (adds disabled prop):
+```jsx
+<GenericButton color="blue" disabled={true}>Click Me</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) => (
+    <Button disabled style={{ ...style, background: "blue" }}>
+      Click Me
+    </Button>
+  )}
+</GenericButton>
+```
+
+**Note:** Through `...enhancement`, any consumer can already pass `disabled` without GenericButton knowing.
+
+---
+
+### Requirement 4: "Disabled when some other state is true"
+
+**Configuration approach** (adds conditional logic):
+```jsx
+// GenericButton now needs to understand your business logic
+<GenericButton color="blue" disabled={!isActive}>Click Me</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick} disabled={!isActive}>
+  {({ Button, style }) => (
+    <Button style={{ ...style, background: "blue" }}>
+      Click Me
+    </Button>
+  )}
+</GenericButton>
+```
+
+**See implementation:** `src/components/Activable.js` (wraps GenericButton to add activation behavior)
+
+---
+
+### Requirement 5: "Different sizes"
+
+**Configuration approach** (adds size variants):
+```jsx
+// GenericButton now needs size mapping logic
+<GenericButton color="blue" size="large">Click Me</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) => (
+    <Button style={{ ...style, background: "blue", fontSize: "18px", padding: "15px" }}>
+      Click Me
+    </Button>
+  )}
+</GenericButton>
+```
+
+---
+
+### Requirement 6: "Show loader while loading"
+
+**Configuration approach** (adds loading state):
+```jsx
+// GenericButton now manages loading UI
+<GenericButton color="blue" showLoader={isLoading}>Click Me</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) =>
+    isLoading ? (
+      <Button disabled style={{ ...style, background: "blue" }}>
+        Loading...
+      </Button>
+    ) : (
+      <Button style={{ ...style, background: "blue" }}>
+        Click Me
+      </Button>
+    )
+  }
+</GenericButton>
+```
+
+**See implementation:** `src/components/Input.js` (demonstrates loading state with image)
+
+---
+
+### Requirement 7: "Icon with text"
+
+**Configuration approach** (adds icon support):
+```jsx
+// GenericButton now needs icon rendering logic
+<GenericButton
+  color="blue"
+  icon={<SaveIcon />}
+  iconPosition="left"
+>
+  Save
+</GenericButton>
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton onClick={handleClick}>
+  {({ Button, style }) => (
+    <Button style={{ ...style, background: "blue" }}>
+      <SaveIcon /> Save
+    </Button>
+  )}
+</GenericButton>
+```
+
+---
+
+### Requirement 8: "Completely different element (not a button)"
+
+**Configuration approach** (breaks down):
+```jsx
+// GenericButton can't handle this—it's fundamentally about <button>
+// You'd need a new component or hacky as="input" prop
+```
+
+**Composition approach** (GenericButton unchanged):
+```jsx
+<GenericButton>
+  {({ track, style }) => (
+    <input
+      type="image"
+      src={imageUrl}
+      onClick={track(handleClick)}
+      style={{ ...style, padding: "0" }}
+    />
+  )}
+</GenericButton>
+```
+
+**See implementation:** `src/components/Input.js` (uses `<input type="image">` instead of `<button>`)
+
+---
+
+### The Pattern: Zero Modifications
+
+Notice what happened across all 8 requirements:
+
+| Requirement | Configuration Approach | Composition Approach | GenericButton Modified? |
+|-------------|----------------------|---------------------|------------------------|
+| Blue button | Added `color` prop | Composed with `style` | ❌ No |
+| Green button | Extended `color` prop | Composed with `style` | ❌ No |
+| Disabled | Added `disabled` prop | Used `...enhancement` | ❌ No |
+| Conditional disabled | Added conditional logic | Consumer handles logic | ❌ No |
+| Different sizes | Added `size` prop | Composed with `style` | ❌ No |
+| Loading state | Added `showLoader` prop | Consumer handles state | ❌ No |
+| Icons | Added `icon`, `iconPosition` | Composed children | ❌ No |
+| Different element | Can't handle / needs refactor | Composed with `track`, `style` | ❌ No |
+
+**Configuration approach:** 7 prop additions, 1 impossible case, GenericButton grows with every requirement.
+
+**Composition approach:** 0 modifications to GenericButton, all cases handled, including the "impossible" one.
 
 ---
 
